@@ -13,3 +13,4 @@ all :
 		
 		$(CC) $(CFLAGS) -o $(DIR)/lc lc_dir/lc.cpp
 		$(CC) $(CFLAGS) -o $(DIR)/fin fin_dir/fin.cpp
+		$(CC) $(CFLAGS) -o $(DIR)/edit edit_dir/edit.cpp

@@ -8,9 +8,6 @@
 
 #include <pthread.h>
 
-
-using namespace std; 
-
 typedef struct thread_arg{
 
 char d_name[256]; 
