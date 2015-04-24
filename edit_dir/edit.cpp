@@ -4,6 +4,8 @@
 #include <string.h>
 #include <pthread.h>
 #include <vector>
+#include <ctype.h>
+#include <fstream>
 
 std::vector<std::string> vector_string; 
 
@@ -13,23 +15,106 @@ typedef struct thread_args{
 	bool t_input_finish = false; 
 	pthread_mutex_t lock_self = PTHREAD_MUTEX_INITIALIZER;
 	pthread_mutex_t lock_input = PTHREAD_MUTEX_INITIALIZER; 
+	std::string file; 
 } thread_args;
 
 void* write_thread(void* args){
 
-		while( ! (*(thread_args*)args).t_input_finish){
+	bool firstmaj = true; 
+	bool spaceNeeded = false; 
+
+	std::ofstream wfile; 
+	
+	wfile.open( (*(thread_args*)args).file, std::ios::trunc);
+	wfile.close();  
+	
+	
+	while( ! (*(thread_args*)args).t_input_finish){
+		
+		pthread_mutex_lock(& (*(thread_args*)args).lock_input); 
+		
+		if(vector_string.size() != 0){
+		
+			std::string s = vector_string.front(); 
+
 			
-			pthread_mutex_lock(& (*(thread_args*)args).lock_input); 
-			
-			if(vector_string.size() != 0){
-			
-				std::cout<<vector_string.front()<<std::endl;
-			
+			if(s.size() == 0){
 				vector_string.erase(vector_string.begin()); 
+				pthread_mutex_unlock(& (*(thread_args*)args).lock_input);
+				continue;
+			}
+			
+			if(s.compare("\e") == 0){
+				vector_string.erase(vector_string.begin()); 
+				continue; 
+			}
+			
+			wfile.open( (*(thread_args*)args).file, std::ios::in | std::ios::app); 
+	
+			if(spaceNeeded && s[0] != '!' && s[0] != '.' && s[0] != '?'){
+				wfile<<' '; 
+			}
+			
+			spaceNeeded = true; 
+			
+			if(firstmaj){
+		
+				for(int i = 0; i < s.size()-1; ++i){
+			
+					if(s[i] >= 'a' && s[i] <= 'z'){
+						s[i] = toupper(s[i]);
+						firstmaj = false; 
+						break; 
+					}
+					
+					if(s[i] >= 'A' && s[i] <= 'Z'){
+						firstmaj = false; 
+						break; 
+					}
+				}
 			}
 		
-			pthread_mutex_unlock(& (*(thread_args*)args).lock_input);
+		
+			//Traitement de la string
+			for(int i = 0; i < s.size()-1; ++i){
+		
+				if(s[i] == '!' || s[i] == '.' || s[i] == '?'){
+			
+					if(s[i+1] != ' '){
+			
+						//s.insert(i+1, " ");
+		
+					}
+				
+					if(s[i+2] >= 'a' && s[i+2] <= 'z'){
+				
+						s[i+2] = toupper(s[i+2]); 
+					}
+				}
+			}
+		
+			
+			for(int i = s.size() - 1; i >=0; --i){
+			
+				if(s[i] == '!' || s[i] == '.' || s[i] == '?'){
+	
+					firstm
+aj = true; 
+					break;
+					
+				} else if(s[i] == ' ') continue;
+				else break; 
+			}
+			
+			wfile<<s; 
+			vector_string.erase(vector_string.begin()); 
 		}
+		
+		wfile.close(); 
+		pthread_mutex_unlock(& (*(thread_args*)args).lock_input);
+	}
+	
+	printf("Exit w!\n"); 
 	pthread_exit(NULL); 
 }
 
@@ -42,20 +127,16 @@ void* input_thread(void* args){
 		
 		getline(std::cin, input); 
 		
-		if( (pthread_mutex_lock(& (*(thread_args*)args).lock_input)) != 0){
-		
-			//printf("Error lock\n"); 
-		}
+		pthread_mutex_lock(& (*(thread_args*)args).lock_input);
 		
 		vector_string.push_back(input); 
 		
-		if( (pthread_mutex_unlock(& (*(thread_args*)args).lock_input)) != 0){
-			//printf("Error unlock\n"); 
-		}
+		pthread_mutex_unlock(& (*(thread_args*)args).lock_input);
 		
 	}while(input.compare("\e") != 0);
 	
 	(*(thread_args*)args).t_input_finish = true; 
+	printf("Exit r!\n"); 
 	pthread_exit(NULL);
 }
 
@@ -75,7 +156,8 @@ int main(int argc, char** argv){
 	
 	thread_args args; 
 	
-	//pthread_mutex_init(& (args.lock_self), NULL ); 
+	args.file = std::string(argv[1]); 
+	
 	pthread_mutex_init(& (args.lock_input), NULL ); 
 	
 
@@ -84,28 +166,16 @@ int main(int argc, char** argv){
 	
 	//Create thread for reading
 	pthread_create(&t_input, &attr, &input_thread, (void*) &args); 
-	
-	//pthread_mutex_lock(& (args.lock_self));
-	
-	//args.t_input = t_input; 
-	
-	//pthread_mutex_unlock(& (args.lock_self));
+
 	
 	//Create thread for writing
-	
 	pthread_create(&t_write, &attr, &write_thread, (void*) &args); 
 	
-	//pthread_mutex_lock(& (args.lock_self));
-	
-	//args.t_write = t_write; 
-	
-	//pthread_mutex_unlock(& (args.lock_self));
 	
 	pthread_join(t_input, NULL); 
 	pthread_join(t_write, NULL); 
 	
-	//pthread_mutex_destroy( &(args.lock_input)); 
-	//pthread_mutex_destroy( &(args.lock_self)); 	
+	pthread_mutex_destroy( &(args.lock_self)); 	
 
 	return 0;
 }
