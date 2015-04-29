@@ -49,8 +49,14 @@ void affichage(FILE* f, int numLigne, int totLigne){
         }
         fscanf(f, "%c", &lecture);
         
+        if(feof(f)){
+        	continue; 
+        }
+        
         printf("%c", lecture); 	
 	}
+	
+	printf("\n"); 
 
 }
 

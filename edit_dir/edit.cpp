@@ -22,14 +22,24 @@ void* write_thread(void* args){
 
 	bool firstmaj = true; 
 	bool spaceNeeded = false; 
-
-	std::ofstream wfile; 
+	
+	
+	access((*(thread_args*)args).file.c_str(), W_OK); 
+					
+	if(errno == EACCES){
+			
+		printf("Permission d'écrire insuffisante pour le fichier : %s\n", (*(thread_args*)args).file.c_str()); 
+		exit(1); 
+					
+	}
+	
+	std::ofstream wfile;
 	
 	wfile.open( (*(thread_args*)args).file, std::ios::trunc);
 	wfile.close();  
 	
 	
-	while( ! (*(thread_args*)args).t_input_finish){
+	while( ! (*(thread_args*)args).t_input_finish || vector_string.size() !=0){
 		
 		pthread_mutex_lock(& (*(thread_args*)args).lock_input); 
 		
@@ -59,7 +69,7 @@ void* write_thread(void* args){
 			
 			if(firstmaj){
 		
-				for(int i = 0; i < s.size()-1; ++i){
+				for(unsigned int i = 0; i < s.size()-1; ++i){
 			
 					if(s[i] >= 'a' && s[i] <= 'z'){
 						s[i] = toupper(s[i]);
@@ -76,13 +86,13 @@ void* write_thread(void* args){
 		
 		
 			//Traitement de la string
-			for(int i = 0; i < s.size()-1; ++i){
+			for(unsigned int i = 0; i < s.size()-1; ++i){
 		
 				if(s[i] == '!' || s[i] == '.' || s[i] == '?'){
 			
 					if(s[i+1] != ' '){
 			
-						//s.insert(i+1, " ");
+						s.insert(i+1, " ");
 		
 					}
 				
@@ -94,18 +104,17 @@ void* write_thread(void* args){
 			}
 		
 			
-			for(int i = s.size() - 1; i >=0; --i){
+			for(unsigned int i = s.size() - 1; i >=0; --i){
 			
 				if(s[i] == '!' || s[i] == '.' || s[i] == '?'){
 	
-					firstm
-aj = true; 
+					firstmaj = true; 
 					break;
 					
-				} else if(s[i] == ' ') continue;
+				} 
+				else if(s[i] == ' ') continue;
 				else break; 
 			}
-			
 			wfile<<s; 
 			vector_string.erase(vector_string.begin()); 
 		}
@@ -114,7 +123,7 @@ aj = true;
 		pthread_mutex_unlock(& (*(thread_args*)args).lock_input);
 	}
 	
-	printf("Exit w!\n"); 
+	//printf("Exit w!\n"); 
 	pthread_exit(NULL); 
 }
 
@@ -125,7 +134,11 @@ void* input_thread(void* args){
 
 	do{
 		
-		getline(std::cin, input); 
+		if(!getline(std::cin, input)){
+			(*(thread_args*)args).t_input_finish = true; 
+			pthread_exit(NULL); 
+		}
+		
 		
 		pthread_mutex_lock(& (*(thread_args*)args).lock_input);
 		
@@ -136,19 +149,13 @@ void* input_thread(void* args){
 	}while(input.compare("\e") != 0);
 	
 	(*(thread_args*)args).t_input_finish = true; 
-	printf("Exit r!\n"); 
+	//printf("Exit r!\n"); 
 	pthread_exit(NULL);
 }
 
 
 int main(int argc, char** argv){
 
-	FILE* f;
-	
-	if( (f = fopen(argv[1], "w")) == NULL){
-	
-		printf("fopen error : %d", errno);
-	}
 	
 	pthread_attr_t attr;
  	pthread_attr_init( &attr );

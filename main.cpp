@@ -4,8 +4,25 @@
 #include <errno.h>
 #include <sys/wait.h>
 #include <string.h>
+#include <stdio.h>
+#include <sys/types.h> 
+#include <sys/stat.h> 
 
 using namespace std; 
+
+//Function to call at the end of redirection
+void close_input(void){
+
+	fclose(stdin); 
+
+}
+
+//Function to call at the end of redirection
+void close_output(void){
+
+	fclose(stdout); 
+
+}
 
 string getCommand(){
 
@@ -64,8 +81,6 @@ void executeLineCommand(string& lineCommand){
 		} 		
 		else {
 			
-			//pid_t parent = getpid();
-			
 			pid_t pid = fork();
 			
 			if(pid == -1){
@@ -88,12 +103,73 @@ void executeLineCommand(string& lineCommand){
 				string login_str(login_c); 
 				
 				string fullPath = "/home/" + login_str +"/inf3172/bin/" + command;  
+				
+				//Change I/O
+				
+				size_t pos_output = arg.find(">"); 
+				size_t pos_input = arg.find("<"); 
+
+				if(pos_output != std::string::npos){
+					//Il y a redirection dans un fichier ! 
+					
+					std::string file_output = arg.substr(pos_output + 2, arg.size()); 
+					arg = arg.substr(0, pos_output - 1); 
+					
+					//Regarder permission
+					access(file_output.c_str(), W_OK); 
+					
+					if(errno == EACCES){
+					
+						std::cout<<"Permission insuffisante d'écriture pour "<<file_output<<std::endl;
+						exit(1); 
+					
+					}
+					
+					if( freopen(file_output.c_str(), "w", stdout) == NULL){
+					
+						std::cout<<"Erreur lors du changement de la sortie standard"<<std::endl; 
+						exit(1); 
+					} 
+					
+					atexit(close_output); 
+					
+				
+				} else if (pos_input != std::string::npos){
+					//On prend une fichier comme entrée ! 
+					
+					std::string file_input = arg.substr(pos_input + 2, arg.size()); 
+				
+					arg = arg.substr(0, pos_input - 1); 
+					
+					int r_perm = access(file_input.c_str(), R_OK); 
+					
+					if(r_perm != 0){
+					
+						std::cout<<"Permission insuffisante de lecture pour "<<file_input<<std::endl;
+						exit(1); 
+					
+					}
+					
+					if( freopen(file_input.c_str(), "r", stdin) == NULL){
+					
+						std::cout<<"Erreur lors du changement de l'entrée standard"<<std::endl; 
+						exit(1); 
+					} 
+					
+					atexit(close_input); 
+					
+				
+				}
+				
+				//Fin change I/O
 			
 				char c_command[1024];
 				strcpy(c_command, fullPath.c_str());
 			
 				char c_arg[1024];
 				strcpy(c_arg, arg.c_str());
+				
+				//Change I/O
 			
 				char *argv[] = {c_command, c_arg, NULL}; 
 				

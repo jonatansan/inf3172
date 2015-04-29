@@ -22,6 +22,16 @@ void* count_line(void* args){
 	char lecture;
 	int nbLigne = 0; 
 	
+	int r_perm = access( (*(thread_arg*)args).d_name, R_OK); 
+					
+	if(r_perm != 0){
+					
+		printf("Permission insuffisante de lecture pour : %s", (*(thread_arg*)args).d_name); 
+		(*(thread_arg*)args).finish = true; 
+		pthread_exit(args); 
+					
+	}
+	
 	FILE* f;
 	if( (f = fopen( (*(thread_arg*)args).d_name, "r")  )  == NULL){
 	
